@@ -8,6 +8,7 @@ from sqlalchemy.orm import selectinload
 import random
 import string
 import json
+import os
 
 from database import init_db, get_session
 from models import Quiz, QuizCreate, QuizRead, Question, AnswerOption, Session, SessionRead, SessionBase
@@ -27,9 +28,17 @@ origins = [
     "http://127.0.0.1:5173",
 ]
 
+# Allow LAN IP access in dev (e.g. http://192.168.x.x:5173)
+# You can override with env var CORS_ALLOW_ORIGIN_REGEX if you want stricter control.
+origin_regex = os.getenv(
+    "CORS_ALLOW_ORIGIN_REGEX",
+    r"^https?://(localhost|127\.0\.0\.1|\d{1,3}(\.\d{1,3}){3})(:\d+)?$",
+)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
+    allow_origin_regex=origin_regex,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

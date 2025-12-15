@@ -80,6 +80,9 @@ export const useGameStore = create<GameState>((set, get) => ({
   connect: (name, code, isHost = false, existingClientId) => {
     // Check for existing ID or generate new
     const clientId = existingClientId || (isHost ? 'host' : Math.random().toString(36).substr(2, 9));
+
+    // Set session code immediately so UI can render it without waiting for WS handshake
+    set({ sessionCode: code, isHost, error: null });
     
     // Persist session if not host
     if (!isHost) {
@@ -189,7 +192,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     const stored = localStorage.getItem('quiz_session');
     if (stored) {
         try {
-            const { code, name, clientId, color } = JSON.parse(stored);
+            const { code, name, clientId } = JSON.parse(stored);
             if (code && name && clientId) {
                 console.log("Attempting reconnect...", { code, name, clientId });
                 get().connect(name, code, false, clientId);

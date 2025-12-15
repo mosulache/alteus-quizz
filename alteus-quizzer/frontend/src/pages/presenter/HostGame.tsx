@@ -12,7 +12,6 @@ export function HostGame() {
         currentQuestion,
         timeRemaining, 
         status, 
-        tick, 
         nextQuestion, 
         participants,
         skipTimer
@@ -22,13 +21,6 @@ export function HostGame() {
     
     // Use currentQuestion from store directly, as quiz.questions might be empty or partial
     const question = currentQuestion;
-
-    useEffect(() => {
-        const interval = setInterval(() => {
-            tick();
-        }, 1000);
-        return () => clearInterval(interval);
-    }, [tick]);
 
     useEffect(() => {
         if (status === 'FINISHED') {
@@ -95,7 +87,7 @@ export function HostGame() {
         <div className="flex flex-col h-full">
             <div className="flex justify-between items-center mb-12">
                  <div className="text-2xl font-bold text-slate-500 uppercase tracking-widest">
-                    Question {currentQuestionIndex + 1} / {quiz.questions.length}
+                    Question {currentQuestionIndex + 1} / {(quiz?.totalQuestions ?? 0)}
                  </div>
                  <div className="flex items-center gap-4">
                      {/* Mock Answers Counter */}

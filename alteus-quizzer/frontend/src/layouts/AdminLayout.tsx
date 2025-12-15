@@ -1,6 +1,7 @@
 import { Outlet, Link, useLocation } from "react-router-dom";
 import { LayoutDashboard, PlusCircle, Settings, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
+import alteusLogo from "@/assets/header-logo-light.svg";
 
 export function AdminLayout() {
   const location = useLocation();
@@ -10,9 +11,17 @@ export function AdminLayout() {
   return (
     <div className="min-h-screen flex bg-slate-50 text-slate-900 font-sans">
       <aside className="w-64 bg-white border-r border-slate-200 flex flex-col shadow-sm fixed h-full z-10">
-        <div className="p-6 border-b border-slate-100 flex items-center gap-2">
-            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white font-bold">A</div>
-            <h2 className="font-bold text-xl text-slate-800">Alteus Quizzer Admin</h2>
+        <div className="p-4 border-b border-slate-100">
+          <div className="px-4 py-2 flex flex-col items-start gap-2">
+            <img
+              src={alteusLogo}
+              alt="Alteus"
+              className="h-8 w-auto"
+            />
+            <h2 className="font-bold text-lg leading-tight text-slate-800">
+              Quizzer Admin
+            </h2>
+          </div>
         </div>
         <nav className="flex-1 p-4 space-y-1">
           <Link 
