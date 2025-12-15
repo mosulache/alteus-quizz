@@ -36,7 +36,19 @@ const Landing = () => (
   </div>
 );
 
+import { useGameStore } from "./store/gameStore";
+import { useEffect } from "react";
+
 function App() {
+  const { tryReconnect, isConnected } = useGameStore();
+
+  useEffect(() => {
+    // Attempt reconnect on mount if not connected
+    if (!isConnected) {
+        tryReconnect();
+    }
+  }, []);
+
   return (
     <BrowserRouter>
       <Routes>
@@ -61,6 +73,7 @@ function App() {
         <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<AdminDashboard />} />
             <Route path="create" element={<QuizEditor />} />
+            <Route path="edit/:id" element={<QuizEditor />} />
             <Route path="settings" element={<Settings />} />
         </Route>
 

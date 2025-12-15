@@ -4,7 +4,7 @@ import { Trophy, RefreshCcw } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 export function HostResults() {
-    const { participants, reset } = useGameStore();
+    const { participants, resetSession } = useGameStore();
     const navigate = useNavigate();
 
     const sortedParticipants = [...participants].sort((a, b) => b.score - a.score);
@@ -12,7 +12,7 @@ export function HostResults() {
     const rest = sortedParticipants.slice(3);
 
     const handleReset = () => {
-        reset();
+        resetSession();
         navigate("/host");
     }
 

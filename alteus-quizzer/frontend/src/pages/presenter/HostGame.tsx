@@ -9,16 +9,19 @@ export function HostGame() {
     const { 
         quiz, 
         currentQuestionIndex, 
+        currentQuestion,
         timeRemaining, 
         status, 
         tick, 
         nextQuestion, 
         participants,
-        forceStatus
+        skipTimer
     } = useGameStore();
     
     const navigate = useNavigate();
-    const question = quiz.questions[currentQuestionIndex];
+    
+    // Use currentQuestion from store directly, as quiz.questions might be empty or partial
+    const question = currentQuestion;
 
     useEffect(() => {
         const interval = setInterval(() => {
@@ -134,7 +137,7 @@ export function HostGame() {
             </div>
             
              <div className="mt-8 flex justify-end">
-                <Button variant="ghost" className="text-slate-600 hover:text-slate-400" onClick={() => forceStatus('REVIEW')}>
+                <Button variant="ghost" className="text-slate-600 hover:text-slate-400" onClick={skipTimer}>
                     Skip Timer
                 </Button>
             </div>

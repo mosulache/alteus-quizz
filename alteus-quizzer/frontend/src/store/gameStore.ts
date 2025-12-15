@@ -4,8 +4,8 @@ import { create } from 'zustand';
 export type Question = {
   id: string;
   text: string;
-  options: { id: string; text: string; isCorrect: boolean }[];
-  explanation: string;
+  options: { id: string; text: string; isCorrect?: boolean }[];
+  explanation?: string;
   timeLimit: number;
   media?: string;
 };
@@ -17,148 +17,246 @@ export type Participant = {
   score: number;
 };
 
+export type GameStatus = 'WAITING' | 'ACTIVE' | 'REVIEW' | 'FINISHED';
+
 type GameState = {
+  // Connection
+  socket: WebSocket | null;
+  isConnected: boolean;
+  error: string | null;
+
   // Participant State
-  currentPlayer: Participant | null;
+  currentPlayer: { id: string; name: string; color: string } | null;
+  isHost: boolean;
   lastAnswerId: string | null;
   
   // Session State
-  sessionCode: string;
-  status: 'WAITING' | 'ACTIVE' | 'REVIEW' | 'FINISHED'; // REVIEW = Showing answer
+  sessionCode: string | null;
+  status: GameStatus;
   currentQuestionIndex: number;
   timeRemaining: number;
   
   // Data
   quiz: {
     title: string;
-    questions: Question[];
-  };
-  participants: Participant[]; // For Host view
+    questions: Question[]; // Note: Backend might send just current question or all if host
+    totalQuestions: number;
+  } | null;
+  
+  currentQuestion: Question | null;
+  participants: Participant[]; 
   
   // Actions
-  joinSession: (name: string, code: string) => void;
+  connect: (name: string, code: string, isHost?: boolean, existingClientId?: string) => void;
+  tryReconnect: () => void;
+  disconnect: () => void;
   startQuiz: () => void;
   nextQuestion: () => void;
   submitAnswer: (answerId: string) => void;
-  tick: () => void; // For timer
   reset: () => void;
-  forceStatus: (status: 'WAITING' | 'ACTIVE' | 'REVIEW' | 'FINISHED') => void;
+  resetSession: () => void;
+  skipTimer: () => void;
 };
 
-// Mock Data
-const MOCK_QUIZ = {
-  title: "AI Fundamentals",
-  questions: [
-    {
-      id: "q1",
-      text: "What does LLM stand for?",
-      timeLimit: 15,
-      options: [
-        { id: "a", text: "Large Language Model", isCorrect: true },
-        { id: "b", text: "Low Latency Memory", isCorrect: false },
-        { id: "c", text: "Linear Learning Machine", isCorrect: false },
-        { id: "d", text: "Logical Layer Matrix", isCorrect: false },
-      ],
-      explanation: "LLM stands for Large Language Model, a type of AI model trained on vast amounts of text data."
-    },
-    {
-        id: "q2",
-        text: "Which of the following is NOT a type of machine learning?",
-        timeLimit: 15,
-        options: [
-          { id: "a", text: "Supervised Learning", isCorrect: false },
-          { id: "b", text: "Unsupervised Learning", isCorrect: false },
-          { id: "c", text: "Reinforcement Learning", isCorrect: false },
-          { id: "d", text: "Turbo Learning", isCorrect: true },
-        ],
-        explanation: "Turbo Learning is not a recognized category of machine learning."
-    },
-    {
-        id: "q3",
-        text: "What is the primary function of a Transformer architecture?",
-        timeLimit: 20,
-        options: [
-            { id: "a", text: "Image compression", isCorrect: false },
-            { id: "b", text: "Parallel processing of sequential data", isCorrect: true },
-            { id: "c", text: "Database indexing", isCorrect: false },
-            { id: "d", text: "Voice synthesis", isCorrect: false }
-        ],
-        explanation: "Transformers allow for parallel processing of sequential data using self-attention mechanisms."
-    }
-  ]
-};
+// Detect host automatically
+const HOST = window.location.hostname;
+const WS_URL = `ws://${HOST}:8000/ws`;
 
 export const useGameStore = create<GameState>((set, get) => ({
+  socket: null,
+  isConnected: false,
+  error: null,
   currentPlayer: null,
+  isHost: false,
   lastAnswerId: null,
-  sessionCode: "A1B2",
+  sessionCode: null,
   status: 'WAITING',
   currentQuestionIndex: 0,
   timeRemaining: 0,
-  quiz: MOCK_QUIZ,
-  participants: [
-    { id: "p1", name: "Alice", color: "#EF4444", score: 1200 },
-    { id: "p2", name: "Bob", color: "#3B82F6", score: 950 },
-    { id: "p3", name: "Charlie", color: "#10B981", score: 800 },
-  ],
+  quiz: null,
+  currentQuestion: null,
+  participants: [],
 
-  joinSession: (name, code) => {
-    const colors = ["#EF4444", "#3B82F6", "#10B981", "#F59E0B", "#8B5CF6", "#EC4899"];
-    const randomColor = colors[Math.floor(Math.random() * colors.length)];
-    const newPlayer = {
-        id: Math.random().toString(36).substr(2, 9),
-        name,
-        color: randomColor,
-        score: 0
+  connect: (name, code, isHost = false, existingClientId) => {
+    // Check for existing ID or generate new
+    const clientId = existingClientId || (isHost ? 'host' : Math.random().toString(36).substr(2, 9));
+    
+    // Persist session if not host
+    if (!isHost) {
+        localStorage.setItem('quiz_session', JSON.stringify({
+            code,
+            name,
+            clientId,
+            // also color needs to be consistent, but we generate it on socket open currently. 
+            // We should ideally generate it here or save it after join.
+            // For now let's just save the essentials for reconnect.
+        }));
+    }
+
+    const ws = new WebSocket(`${WS_URL}/${code}/${clientId}`);
+
+    ws.onopen = () => {
+      console.log('Connected to WebSocket');
+      set({ isConnected: true, error: null, sessionCode: code, isHost });
+      
+      if (!isHost) {
+        // Send JOIN action
+        // Try to recover color if we had one (need to update store to save color first)
+        // Or generate new color if first time
+        const stored = localStorage.getItem('quiz_session');
+        let color = "#EF4444"; // Default fallback
+        if (stored) {
+             const data = JSON.parse(stored);
+             if (data.color) color = data.color;
+             else {
+                 const colors = ["#EF4444", "#3B82F6", "#10B981", "#F59E0B", "#8B5CF6", "#EC4899"];
+                 color = colors[Math.floor(Math.random() * colors.length)];
+                 // Update storage with color
+                 localStorage.setItem('quiz_session', JSON.stringify({ ...data, color }));
+             }
+        } else {
+             // Should not happen if we just set it above, but for safety
+             const colors = ["#EF4444", "#3B82F6", "#10B981", "#F59E0B", "#8B5CF6", "#EC4899"];
+             color = colors[Math.floor(Math.random() * colors.length)];
+        }
+
+        ws.send(JSON.stringify({ 
+          action: 'JOIN', 
+          name, 
+          color 
+        }));
+        
+        set({ currentPlayer: { id: clientId, name, color } });
+      } else {
+          set({ currentPlayer: { id: 'host', name: 'Host', color: '#000' } });
+      }
+    };
+
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      console.log('Received:', data);
+
+      if (data.type === 'STATE_UPDATE') {
+        const state = data.state;
+        
+        // Reset lastAnswerId if we moved to a new question (and we are not just reconnecting to same q)
+        // We can check if currentQuestion ID changed
+        const currentQId = get().currentQuestion?.id;
+        const newQId = state.currentQuestion?.id;
+        
+        // Robust Reset Logic
+        // Calculate if we need to reset the answer BEFORE updating the state
+        const shouldResetAnswer = 
+            (newQId && newQId !== currentQId) || // Question changed
+            (state.status === 'WAITING' && get().status !== 'WAITING') || // Game reset
+            (state.status === 'ACTIVE' && get().status === 'REVIEW'); // New round started from review
+
+        set({
+            status: state.status,
+            currentQuestionIndex: state.currentQuestionIndex,
+            timeRemaining: state.timeRemaining,
+            participants: state.participants,
+            currentQuestion: state.currentQuestion,
+            quiz: { 
+                title: "Quiz", // Backend doesn't send full quiz title in state usually, maybe fix backend
+                questions: [], 
+                totalQuestions: state.totalQuestions 
+            },
+            // Atomically reset answer if needed. This overwrites any previous value in the state update if merged incorrectly,
+            // but here we are replacing the whole state slice or merging? Zustand 'set' merges top level.
+            // If we provide lastAnswerId: null, it overwrites.
+            ...(shouldResetAnswer ? { lastAnswerId: null } : {})
+        });
+      } else if (data.type === 'TICK') {
+          set({ timeRemaining: data.timeRemaining });
+      }
+    };
+
+    ws.onclose = () => {
+      console.log('Disconnected');
+      set({ isConnected: false, socket: null });
     };
     
-    set((state) => ({
-      currentPlayer: newPlayer,
-      participants: [...state.participants, newPlayer]
-    }));
+    ws.onerror = (err) => {
+        console.error('WebSocket Error:', err);
+        set({ error: 'Connection failed' });
+    };
+
+    set({ socket: ws });
+  },
+
+  tryReconnect: () => {
+    const stored = localStorage.getItem('quiz_session');
+    if (stored) {
+        try {
+            const { code, name, clientId, color } = JSON.parse(stored);
+            if (code && name && clientId) {
+                console.log("Attempting reconnect...", { code, name, clientId });
+                get().connect(name, code, false, clientId);
+            }
+        } catch (e) {
+            console.error("Failed to parse session", e);
+            localStorage.removeItem('quiz_session');
+        }
+    }
+  },
+
+  disconnect: () => {
+    const { socket } = get();
+    if (socket) {
+      socket.close();
+      set({ socket: null, isConnected: false });
+    }
+    // Don't clear localStorage on disconnect, only on explicit reset/leave
   },
 
   startQuiz: () => {
-    const firstQ = get().quiz.questions[0];
-    set({ 
-      status: 'ACTIVE', 
-      currentQuestionIndex: 0, 
-      timeRemaining: firstQ.timeLimit 
-    });
+    const { socket, isHost } = get();
+    if (socket && isHost) {
+      socket.send(JSON.stringify({ action: 'START_GAME' }));
+    }
   },
 
   nextQuestion: () => {
-    const { currentQuestionIndex, quiz } = get();
-    if (currentQuestionIndex < quiz.questions.length - 1) {
-      const nextQ = quiz.questions[currentQuestionIndex + 1];
-      set({ 
-        status: 'ACTIVE', 
-        currentQuestionIndex: currentQuestionIndex + 1,
-        timeRemaining: nextQ.timeLimit,
-        lastAnswerId: null // Reset answer for new question
-      });
-    } else {
-      set({ status: 'FINISHED' });
+    const { socket, isHost } = get();
+    if (socket && isHost) {
+      socket.send(JSON.stringify({ action: 'NEXT_QUESTION' }));
     }
   },
 
   submitAnswer: (answerId) => {
-     set({ lastAnswerId: answerId });
+    const { socket, isHost } = get();
+    if (socket && !isHost) {
+      socket.send(JSON.stringify({ action: 'SUBMIT_ANSWER', answerId }));
+      set({ lastAnswerId: answerId });
+    }
   },
-  
-  tick: () => {
-      const { timeRemaining, status } = get();
-      if (status === 'ACTIVE' && timeRemaining > 0) {
-          set({ timeRemaining: timeRemaining - 1 });
-      } else if (status === 'ACTIVE' && timeRemaining === 0) {
-          set({ status: 'REVIEW' });
-      }
+
+  resetSession: () => {
+    const { socket, isHost } = get();
+    if (socket && isHost) {
+      socket.send(JSON.stringify({ action: 'RESET' }));
+    }
+  },
+
+  skipTimer: () => {
+    const { socket, isHost } = get();
+    if (socket && isHost) {
+      socket.send(JSON.stringify({ action: 'SKIP_TIMER' }));
+    }
   },
 
   reset: () => {
-      set({ status: 'WAITING', currentQuestionIndex: 0, timeRemaining: 0, lastAnswerId: null });
-  },
-
-  forceStatus: (status) => set({ status })
+      get().disconnect();
+      localStorage.removeItem('quiz_session'); // Clear session
+      set({ 
+        socket: null, 
+        isConnected: false, 
+        sessionCode: null, 
+        status: 'WAITING',
+        currentQuestionIndex: 0,
+        participants: [],
+        currentQuestion: null
+      });
+  }
 }));
-

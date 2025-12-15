@@ -7,12 +7,12 @@ import { Input } from "@/components/ui/input";
 export function Join() {
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
-  const joinSession = useGameStore((state) => state.joinSession);
+  const connect = useGameStore((state) => state.connect);
   const navigate = useNavigate();
 
   const handleJoin = () => {
     if (name && code) {
-      joinSession(name, code);
+      connect(name, code);
       navigate("/lobby");
     }
   };
