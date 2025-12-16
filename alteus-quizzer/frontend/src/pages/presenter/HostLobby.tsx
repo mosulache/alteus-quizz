@@ -1,7 +1,9 @@
 import { useGameStore } from "@/store/gameStore";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
-import { Users, QrCode } from "lucide-react";
+import { Users } from "lucide-react";
+import QRCode from "react-qr-code";
+import { useMemo } from "react";
 
 export function HostLobby() {
     const { participants, startQuiz, sessionCode } = useGameStore();
@@ -12,14 +14,28 @@ export function HostLobby() {
         navigate("/host/game");
     }
 
+    const joinUrl = useMemo(() => {
+        const base = window.location.origin.replace(/\/+$/, "");
+        const code = (sessionCode || "").trim();
+        if (!code) return `${base}/join`;
+        return `${base}/join?code=${encodeURIComponent(code)}`;
+    }, [sessionCode]);
+
     return (
         <div className="flex flex-col h-full gap-12 items-center justify-center">
             <div className="flex flex-col md:flex-row gap-16 items-center">
                 <div className="bg-white p-6 rounded-3xl shadow-2xl rotate-3 transition-transform hover:rotate-0 duration-500">
-                    {/* Placeholder QR */}
-                    <div className="w-72 h-72 bg-slate-900 rounded-xl flex flex-col items-center justify-center text-slate-500 gap-4">
-                        <QrCode size={120} className="text-slate-700" />
-                        <span className="font-mono text-sm">SCAN TO JOIN</span>
+                    <div className="w-72 h-72 bg-white rounded-xl flex flex-col items-center justify-center gap-4">
+                        <div className="w-64 h-64 rounded-lg border border-slate-200 flex items-center justify-center bg-white">
+                            <QRCode
+                                id="join-qr"
+                                value={joinUrl}
+                                size={230}
+                                bgColor="#FFFFFF"
+                                fgColor="#0f172a"
+                                level="M"
+                            />
+                        </div>
                     </div>
                 </div>
                 <div className="flex flex-col gap-6 text-left">

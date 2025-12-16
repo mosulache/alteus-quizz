@@ -1,14 +1,21 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useGameStore } from "@/store/gameStore";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useSearchParams } from "react-router-dom";
 
 export function Join() {
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
   const connect = useGameStore((state) => state.connect);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  useEffect(() => {
+    const qp = (searchParams.get("code") || "").trim();
+    if (qp) setCode(qp.toUpperCase());
+  }, [searchParams]);
 
   const handleJoin = () => {
     if (name && code) {

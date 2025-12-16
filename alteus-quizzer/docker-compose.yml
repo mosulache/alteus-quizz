@@ -12,7 +12,11 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
 
 volumes:
   postgres_data:
+    # Pin volume name to avoid accidental "new volume" creation when the compose
+    # project name / working directory changes.
+    name: alteus_quizzer_postgres_data
 

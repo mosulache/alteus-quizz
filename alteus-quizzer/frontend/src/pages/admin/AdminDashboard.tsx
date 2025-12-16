@@ -7,7 +7,7 @@ import { useQuizStore } from "@/store/quizStore";
 import { useGameStore } from "@/store/gameStore";
 
 export function AdminDashboard() {
-    const { quizzes, fetchQuizzes, isLoading, createSession } = useQuizStore();
+    const { quizzes, fetchQuizzes, isLoading, createSession, error } = useQuizStore();
     const { connect } = useGameStore();
     const navigate = useNavigate();
 
@@ -70,6 +70,15 @@ export function AdminDashboard() {
                         </CardFooter>
                     </Card>
                 ))}
+                {error && (
+                    <div className="col-span-full p-4 rounded-xl border border-red-200 bg-red-50">
+                        <p className="text-sm font-medium text-red-800">Eroare la încărcarea quiz-urilor</p>
+                        <p className="text-xs text-red-700 mt-1 break-words">{error}</p>
+                        <p className="text-xs text-red-700 mt-2">
+                            Dacă ai deschis frontend-ul pe IP (ex. <span className="font-mono">192.168.x.x</span>), asigură-te că backend-ul ascultă pe rețea (ex. <span className="font-mono">uvicorn ... --host 0.0.0.0</span>) sau setează <span className="font-mono">VITE_API_URL</span>.
+                        </p>
+                    </div>
+                )}
                 {!isLoading && quizzes.length === 0 && (
                      <div className="col-span-full text-center py-20 bg-slate-50 rounded-xl border border-dashed border-slate-300">
                         <p className="text-slate-500 mb-4">No quizzes found.</p>

@@ -1,6 +1,9 @@
-// Detect host automatically for local network testing
+// API base URL
+// - Can be overridden via Vite env var: VITE_API_URL (ex: http://localhost:8000)
+// - Otherwise defaults to same hostname as the frontend, port 8000.
 const HOST = window.location.hostname;
-const API_URL = `http://${HOST}:8000`;
+const ENV_API_URL = (import.meta as any)?.env?.VITE_API_URL as string | undefined;
+const API_URL = (ENV_API_URL || `http://${HOST}:8000`).replace(/\/+$/, "");
 
 export async function apiRequest<T>(endpoint: string, options?: RequestInit): Promise<T> {
     const response = await fetch(`${API_URL}${endpoint}`, {

@@ -17,6 +17,8 @@ docker-compose up -d
 ```
 Asta va porni un server PostgreSQL pe portul 5432.
 
+**Important:** datele persistă într-un volum Docker. Dacă rulezi `docker-compose down -v` sau ștergi volumele Docker, pierzi datele.
+
 ### 2. Backend (Python/FastAPI)
 Deschide un terminal nou:
 ```bash
@@ -35,7 +37,7 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 Serverul API va fi disponibil la `http://localhost:8000`.
 Documentația automată (Swagger): `http://localhost:8000/docs`.
 
-**Notă:** Asigură-te că ai fișierul `.env` în `backend/` (vezi `.env.example`).
+**Notă:** Asigură-te că ai fișierul `.env` în `backend/` (vezi `backend/env.example`).
 
 ### 3. Frontend (React)
 Deschide un alt terminal:
