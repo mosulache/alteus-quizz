@@ -5,4 +5,5 @@ asyncpg
 python-dotenv
 psycopg2-binary
 websockets
+httpx
 

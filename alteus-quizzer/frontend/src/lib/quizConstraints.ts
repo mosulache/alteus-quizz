@@ -1,5 +1,6 @@
 export const QUIZ_TEXT_LIMITS = {
   title: 60,
+  goal: 600,
   description: 120,
   questionText: 90,
   optionText: 45,

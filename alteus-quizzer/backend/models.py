@@ -2,6 +2,7 @@ from typing import List, Optional
 from sqlmodel import Field, Relationship, SQLModel, JSON
 from datetime import datetime
 import uuid
+from sqlalchemy import Column, Text
 
 # --- Base Models ---
 
@@ -16,6 +17,7 @@ class AppSettingsBase(SQLModel):
 
 class QuizBase(SQLModel):
     title: str
+    goal: Optional[str] = Field(default=None, sa_column=Column(Text))
     description: Optional[str] = None
     background_image: Optional[str] = None
     default_time_limit: int = 30
@@ -56,7 +58,7 @@ class AppSettings(AppSettingsBase, table=True):
 class Quiz(QuizBase, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     questions: List["Question"] = Relationship(back_populates="quiz", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
-    sessions: List["Session"] = Relationship(back_populates="quiz")
+    sessions: List["Session"] = Relationship(back_populates="quiz", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
 
 class Question(QuestionBase, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
@@ -73,7 +75,7 @@ class Session(SessionBase, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     quiz_id: Optional[int] = Field(default=None, foreign_key="quiz.id")
     quiz: Optional[Quiz] = Relationship(back_populates="sessions")
-    participants: List["Participant"] = Relationship(back_populates="session")
+    participants: List["Participant"] = Relationship(back_populates="session", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
 
 class Participant(ParticipantBase, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)

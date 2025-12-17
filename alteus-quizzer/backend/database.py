@@ -16,6 +16,25 @@ async def init_db():
         # await conn.run_sync(SQLModel.metadata.drop_all)
         await conn.run_sync(SQLModel.metadata.create_all)
 
+        # --- Lightweight migrations (no Alembic) ---
+        # Ensure `quiz.goal` exists for older databases created before the column was added.
+        try:
+            res = await conn.exec_driver_sql(
+                """
+                SELECT 1
+                FROM information_schema.columns
+                WHERE table_name = 'quiz' AND column_name = 'goal'
+                LIMIT 1
+                """
+            )
+            has_goal = res.first() is not None
+            if not has_goal:
+                await conn.exec_driver_sql("ALTER TABLE quiz ADD COLUMN goal TEXT")
+        except Exception:
+            # Best-effort: don't block startup if the DB doesn't support information_schema or
+            # the column already exists under different casing/schema settings.
+            pass
+
 async def get_session() -> AsyncSession:
     async_session = sessionmaker(
         engine, class_=AsyncSession, expire_on_commit=False

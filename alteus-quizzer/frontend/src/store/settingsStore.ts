@@ -22,7 +22,7 @@ type SettingsStore = {
   saveSettings: (payload: Partial<AppSettings>) => Promise<AppSettings>;
 };
 
-export const useSettingsStore = create<SettingsStore>((set, get) => ({
+export const useSettingsStore = create<SettingsStore>((set) => ({
   settings: null,
   isLoading: false,
   isSaving: false,

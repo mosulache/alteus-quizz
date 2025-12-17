@@ -24,6 +24,7 @@ export type Question = {
 export type Quiz = {
     id: number;
     title: string;
+    goal?: string;
     description?: string;
     background_image?: string;
     default_time_limit: number;
@@ -43,6 +44,7 @@ type QuizStore = {
     fetchQuizzes: () => Promise<void>;
     createQuiz: (quiz: QuizCreate) => Promise<void>;
     updateQuiz: (id: number, quiz: QuizCreate) => Promise<void>;
+    deleteQuiz: (id: number) => Promise<void>;
     getQuiz: (id: number) => Promise<Quiz | null>;
     createSession: (quizId: number) => Promise<string>; // Returns session code
 };
@@ -89,6 +91,19 @@ export const useQuizStore = create<QuizStore>((set, get) => ({
             await get().fetchQuizzes();
         } catch (err: any) {
             set({ error: err.message, isLoading: false });
+        }
+    },
+
+    deleteQuiz: async (id) => {
+        set({ isLoading: true, error: null });
+        try {
+            await apiRequest<{ ok: boolean }>(`/quizzes/${id}`, {
+                method: 'DELETE',
+            });
+            await get().fetchQuizzes();
+        } catch (err: any) {
+            set({ error: err.message, isLoading: false });
+            throw err;
         }
     },
 

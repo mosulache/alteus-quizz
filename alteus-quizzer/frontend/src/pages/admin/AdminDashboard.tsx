@@ -1,13 +1,13 @@
 import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
-import { Play, Edit, Plus, Loader2, Sparkles } from "lucide-react";
+import { Play, Edit, Plus, Loader2, Trash2 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useQuizStore } from "@/store/quizStore";
 import { useGameStore } from "@/store/gameStore";
 
 export function AdminDashboard() {
-    const { quizzes, fetchQuizzes, isLoading, createSession, error } = useQuizStore();
+    const { quizzes, fetchQuizzes, isLoading, createSession, deleteQuiz, error } = useQuizStore();
     const { connect } = useGameStore();
     const navigate = useNavigate();
 
@@ -26,6 +26,17 @@ export function AdminDashboard() {
         }
     };
 
+    const handleDelete = async (quizId: number, title?: string) => {
+        const ok = window.confirm(`Delete quiz "${title || `#${quizId}`}"?\n\nThis will remove the quiz, all questions/options, and all sessions/participants.`);
+        if (!ok) return;
+        try {
+            await deleteQuiz(quizId);
+        } catch (error) {
+            console.error("Failed to delete quiz:", error);
+            alert("Failed to delete quiz. Check console.");
+        }
+    };
+
     if (isLoading && quizzes.length === 0) {
         return <div className="flex justify-center p-10"><Loader2 className="animate-spin" /></div>;
     }
@@ -35,38 +46,45 @@ export function AdminDashboard() {
             <div className="flex justify-between items-center">
                 <h1 className="text-3xl font-bold tracking-tight text-slate-900">Dashboard</h1>
                 <div className="flex gap-2">
-                    <Link to="/admin/create">
-                        <Button className="gap-2 shadow-sm"><Plus size={16}/> New Quiz</Button>
-                    </Link>
                     <Link to="/admin/create-ai">
-                        <Button variant="outline" className="gap-2 shadow-sm">
-                            <Sparkles size={16}/> AI Quiz
-                        </Button>
+                        <Button className="gap-2 shadow-sm"><Plus size={16}/> New Quiz</Button>
                     </Link>
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid gap-6 [grid-template-columns:repeat(auto-fit,minmax(18rem,1fr))]">
                 {quizzes.map((quiz) => (
-                    <Card key={quiz.id} className="hover:shadow-md transition-shadow group cursor-pointer border-slate-200">
+                    <Card
+                        key={quiz.id}
+                        className="hover:shadow-md transition-shadow group cursor-pointer border-slate-200 flex flex-col h-60"
+                    >
                         <CardHeader className="pb-3">
-                            <CardTitle className="group-hover:text-primary transition-colors">{quiz.title}</CardTitle>
+                            <CardTitle className="group-hover:text-primary transition-colors line-clamp-2">{quiz.title}</CardTitle>
                             <CardDescription>Created on {new Date(quiz.created_at).toLocaleDateString()}</CardDescription>
                         </CardHeader>
-                        <CardContent>
-                            <div className="text-sm text-slate-500 flex items-center gap-2">
+                        <CardContent className="flex-1 min-h-0 overflow-hidden">
+                            <div className="text-sm text-slate-500 flex items-center gap-2 flex-nowrap">
                                 <span className="bg-slate-100 px-2 py-1 rounded text-xs font-medium">{quiz.questions?.length || 0} Questions</span>
                                 <span className="text-slate-300">•</span>
                                 <span>{quiz.default_time_limit}s / q</span>
                             </div>
                             <p className="text-xs text-slate-400 mt-2 line-clamp-2">{quiz.description}</p>
                         </CardContent>
-                        <CardFooter className="flex justify-between pt-0">
+                        <CardFooter className="mt-auto flex justify-between pt-0">
                             <Link to={`/admin/edit/${quiz.id}`}>
                                 <Button variant="outline" size="sm" className="gap-2 border-slate-200 hover:bg-slate-50">
                                     <Edit size={14} /> Edit
                                 </Button>
                             </Link>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="gap-2 border-red-200 text-red-700 hover:bg-red-50 hover:border-red-300"
+                                disabled={isLoading}
+                                onClick={() => handleDelete(quiz.id, quiz.title)}
+                            >
+                                <Trash2 size={14} /> Delete
+                            </Button>
                             <Button 
                                 size="sm" 
                                 className="gap-2 bg-slate-900 text-white hover:bg-slate-800"
@@ -89,7 +107,7 @@ export function AdminDashboard() {
                 {!isLoading && quizzes.length === 0 && (
                      <div className="col-span-full text-center py-20 bg-slate-50 rounded-xl border border-dashed border-slate-300">
                         <p className="text-slate-500 mb-4">No quizzes found.</p>
-                        <Link to="/admin/create">
+                        <Link to="/admin/create-ai">
                             <Button variant="outline">Create your first Quiz</Button>
                         </Link>
                      </div>

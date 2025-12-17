@@ -25,10 +25,12 @@ from models import (
     AppSettingsUpdate,
 )
 from game_manager import manager, games, ActiveGame
+from ai_routes import router as ai_router
 
 # --- Text constraints (keep in sync with frontend + specs) ---
 QUIZ_TEXT_LIMITS = {
     "title": 60,
+    "goal": 600,
     "description": 120,
     "question_text": 90,
     "option_text": 45,
@@ -49,6 +51,7 @@ def _sanitize_quiz_payload(quiz: QuizCreate) -> QuizCreate:
     This avoids breaking existing DB data and keeps TV layout readable.
     """
     quiz.title = _clamp_str(quiz.title, QUIZ_TEXT_LIMITS["title"]) or ""
+    quiz.goal = _clamp_str(getattr(quiz, "goal", None), QUIZ_TEXT_LIMITS["goal"])
     quiz.description = _clamp_str(quiz.description, QUIZ_TEXT_LIMITS["description"])
 
     for qi, q in enumerate(quiz.questions):
@@ -65,6 +68,9 @@ async def lifespan(app: FastAPI):
     yield
 
 app = FastAPI(title="Alteus Quizzer API", lifespan=lifespan)
+
+# AI routes (backend-only calls to Alteus.ai)
+app.include_router(ai_router)
 
 # CORS Configuration
 origins = [
@@ -135,6 +141,7 @@ async def create_quiz(quiz: QuizCreate, db: AsyncSession = Depends(get_session))
     # Create Quiz instance
     db_quiz = Quiz(
         title=quiz.title,
+        goal=getattr(quiz, "goal", None),
         description=quiz.description,
         background_image=quiz.background_image,
         default_time_limit=quiz.default_time_limit
@@ -191,6 +198,7 @@ async def update_quiz(quiz_id: int, quiz_data: QuizCreate, db: AsyncSession = De
 
     # Update basic fields
     db_quiz.title = quiz_data.title
+    db_quiz.goal = getattr(quiz_data, "goal", None)
     db_quiz.description = quiz_data.description
     db_quiz.default_time_limit = quiz_data.default_time_limit
     
@@ -264,6 +272,36 @@ async def read_quiz(quiz_id: int, db: AsyncSession = Depends(get_session)):
     if not quiz:
         raise HTTPException(status_code=404, detail="Quiz not found")
     return quiz
+
+
+@app.delete("/quizzes/{quiz_id}")
+async def delete_quiz(quiz_id: int, db: AsyncSession = Depends(get_session)):
+    # Load quiz with related entities so cascades + in-memory cleanup can work reliably.
+    stmt = (
+        select(Quiz)
+        .where(Quiz.id == quiz_id)
+        .options(
+            selectinload(Quiz.questions).selectinload(Question.options),
+            selectinload(Quiz.sessions).selectinload(Session.participants),
+        )
+    )
+    result = await db.exec(stmt)
+    quiz = result.one_or_none()
+    if not quiz:
+        raise HTTPException(status_code=404, detail="Quiz not found")
+
+    # If there are active in-memory games for sessions of this quiz, drop them.
+    for s in list(getattr(quiz, "sessions", []) or []):
+        code = getattr(s, "code", None)
+        if code:
+            games.pop(code, None)
+            manager.active_connections.pop(code, None)
+            manager.participant_connections.pop(code, None)
+            manager.host_connections.pop(code, None)
+
+    await db.delete(quiz)
+    await db.commit()
+    return {"ok": True}
 
 # --- Session Management ---
 

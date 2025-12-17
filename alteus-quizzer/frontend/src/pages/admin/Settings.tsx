@@ -6,7 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useSettingsStore } from "@/store/settingsStore";
 
 export function Settings() {
-    const { settings, fetchSettings, saveSettings, isLoading, isSaving, error } = useSettingsStore();
+    const { fetchSettings, saveSettings, isLoading, isSaving, error } = useSettingsStore();
 
     const defaults = useMemo(() => ({
         default_timer_seconds: 30,

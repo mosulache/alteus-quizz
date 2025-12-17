@@ -1,13 +1,14 @@
-import { useState, useEffect } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardHeader } from "@/components/ui/card";
-import { Plus, Trash2, GripVertical, Save, Loader2 } from "lucide-react";
+import { QUIZ_TEXT_LIMITS } from "@/lib/quizConstraints";
+import { Plus, Save, Loader2, Sparkles } from "lucide-react";
 import { useQuizStore, type QuizCreate, type Question } from "@/store/quizStore";
 import { useNavigate, useParams } from "react-router-dom";
 import { useSettingsStore } from "@/store/settingsStore";
-import { QUIZ_TEXT_LIMITS } from "@/lib/quizConstraints";
+import { QuestionEditorCard } from "@/components/admin/QuestionEditorCard";
+import { apiRequest } from "@/lib/api";
 
 export function QuizEditor() {
     const navigate = useNavigate();
@@ -17,8 +18,13 @@ export function QuizEditor() {
     const isEditMode = !!id;
     
     const [title, setTitle] = useState("New Untitled Quiz");
+    const [goal, setGoal] = useState("");
     const [description, setDescription] = useState("");
     const [defaultTimer, setDefaultTimer] = useState(30);
+    const [generateCount, setGenerateCount] = useState<number>(10);
+    const [isGeneratingDescription, setIsGeneratingDescription] = useState(false);
+    const [isGeneratingMore, setIsGeneratingMore] = useState(false);
+    const [regeneratingIndex, setRegeneratingIndex] = useState<number | null>(null);
 
     const makeDefaultQuestion = (index: number, timerSeconds: number): Partial<Question> => ({
         text: `Question ${index}`,
@@ -37,11 +43,23 @@ export function QuizEditor() {
         makeDefaultQuestion(1, 30),
     ]);
 
+    const canGenerateAI = useMemo(() => title.trim().length > 0 && goal.trim().length > 0, [title, goal]);
+    const normalizedCount = useMemo(() => {
+        const n = Number.isFinite(generateCount) ? Math.floor(generateCount) : 10;
+        return Math.max(1, Math.min(50, n || 10));
+    }, [generateCount]);
+
+    const existingQuestionTexts = useMemo(
+        () => questions.map((q) => (q.text || "").trim()).filter(Boolean),
+        [questions]
+    );
+
     useEffect(() => {
         // Important: switching from /admin/edit/:id -> /admin/create can reuse the same component instance.
         // Without a reset, the local form state stays populated with the previous quiz data.
         if (!isEditMode) {
             setTitle("New Untitled Quiz");
+            setGoal("");
             setDescription("");
             setDefaultTimer(30);
             setQuestions([makeDefaultQuestion(1, 30)]);
@@ -53,6 +71,7 @@ export function QuizEditor() {
             getQuiz(parseInt(id)).then(quiz => {
                 if (quiz) {
                     setTitle(quiz.title);
+                    setGoal(quiz.goal || "");
                     setDescription(quiz.description || "");
                     setDefaultTimer(quiz.default_time_limit || 30);
                     setQuestions(quiz.questions);
@@ -112,9 +131,96 @@ export function QuizEditor() {
         setQuestions(newQuestions);
     };
 
+    const handleGenerateDescription = async () => {
+        if (!canGenerateAI) return;
+        setIsGeneratingDescription(true);
+        try {
+            const res = await apiRequest<{ description: string }>("/api/ai/quiz/description", {
+                method: "POST",
+                body: JSON.stringify({ title, goal }),
+            });
+            setDescription(res.description || "");
+        } catch (e: any) {
+            alert(e.message || "Failed to generate description");
+        } finally {
+            setIsGeneratingDescription(false);
+        }
+    };
+
+    const handleGenerateMore = async () => {
+        if (!canGenerateAI) return;
+        setIsGeneratingMore(true);
+        try {
+            const res = await apiRequest<{ questions: Question[] }>("/api/ai/quiz/questions/more", {
+                method: "POST",
+                body: JSON.stringify({
+                    title,
+                    goal,
+                    description,
+                    default_time_limit: defaultTimer,
+                    existing_questions: existingQuestionTexts,
+                    count: normalizedCount,
+                }),
+            });
+            setQuestions((prev) => {
+                const start = prev.length;
+                const appended = (res.questions || []).map((q, i) => ({
+                    ...q,
+                    order: start + i,
+                    time_limit: q.time_limit ?? defaultTimer,
+                    points: q.points ?? 1000,
+                    question_type: q.question_type || "single",
+                    options: (q.options || []).map((o, oi) => ({ ...o, order: oi })),
+                }));
+                return [...prev, ...appended];
+            });
+        } catch (e: any) {
+            alert(e.message || "Failed to generate more questions");
+        } finally {
+            setIsGeneratingMore(false);
+        }
+    };
+
+    const handleRegenerateOptions = async (qIndex: number) => {
+        if (!canGenerateAI) return;
+        const q = questions[qIndex];
+        const question_text = (q.text || "").trim();
+        if (!question_text) return alert("Question text is required to regenerate options.");
+
+        setRegeneratingIndex(qIndex);
+        try {
+            const oldOptions = (q.options || []).map((o) => o.text || "").filter(Boolean);
+            const res = await apiRequest<{ options: any[]; explanation: string }>("/api/ai/quiz/question/options/regenerate", {
+                method: "POST",
+                body: JSON.stringify({
+                    title,
+                    goal,
+                    description,
+                    question_text,
+                    old_options: oldOptions,
+                }),
+            });
+            setQuestions((prev) => {
+                const next = [...prev];
+                const existing = next[qIndex] || {};
+                next[qIndex] = {
+                    ...existing,
+                    options: (res.options || []).map((o, oi) => ({ ...o, order: oi })),
+                    explanation: res.explanation || existing.explanation || "",
+                };
+                return next;
+            });
+        } catch (e: any) {
+            alert(e.message || "Failed to regenerate options");
+        } finally {
+            setRegeneratingIndex(null);
+        }
+    };
+
     const handleSave = async () => {
         const quizData: QuizCreate = {
             title,
+            goal,
             description,
             default_time_limit: defaultTimer,
             questions: questions.map((q, i) => ({
@@ -147,7 +253,9 @@ export function QuizEditor() {
     return (
         <div className="space-y-8 max-w-4xl mx-auto animate-in slide-in-from-bottom-4 duration-500 pb-20">
             <div className="flex justify-between items-center bg-white/80 backdrop-blur-sm sticky top-0 py-4 z-10 border-b border-transparent">
-                <h1 className="text-3xl font-bold tracking-tight text-slate-900">{isEditMode ? "Edit Quiz" : "Create Quiz"}</h1>
+                <h1 className="text-3xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
+                    <Sparkles className="text-primary" size={22} /> {isEditMode ? "Edit Quiz" : "Create Quiz"}
+                </h1>
                 <div className="flex gap-2">
                     <Button variant="outline" onClick={() => navigate("/admin")}>Cancel</Button>
                     <Button onClick={handleSave} disabled={isLoading}>
@@ -172,7 +280,34 @@ export function QuizEditor() {
                     </div>
                 </div>
                 <div className="space-y-2">
-                    <label className="text-sm font-medium text-slate-700">Description</label>
+                    <label className="text-sm font-medium text-slate-700">Goal / Purpose</label>
+                    <Textarea
+                        placeholder="What is this quiz for?"
+                        value={goal}
+                        onChange={(e) => setGoal(e.target.value)}
+                        maxLength={QUIZ_TEXT_LIMITS.goal}
+                        rows={4}
+                        className="text-slate-600 resize-y"
+                    />
+                    <div className="text-xs text-slate-400 text-right">
+                        {goal.length}/{QUIZ_TEXT_LIMITS.goal}
+                    </div>
+                </div>
+                <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                        <label className="text-sm font-medium text-slate-700">Description</label>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={!canGenerateAI || isGeneratingDescription}
+                            onClick={handleGenerateDescription}
+                            className="gap-2"
+                            title={!canGenerateAI ? "Fill Title + Goal to use AI" : undefined}
+                        >
+                            <Sparkles size={14} /> Generate description
+                        </Button>
+                    </div>
                     <Textarea
                         placeholder="Short description..." 
                         value={description}
@@ -185,6 +320,37 @@ export function QuizEditor() {
                         {description.length}/{QUIZ_TEXT_LIMITS.description}
                     </div>
                 </div>
+
+                {isEditMode && (
+                    <div className="pt-2 flex flex-wrap gap-2 items-center">
+                        <div className="flex items-center gap-2">
+                            <label className="text-xs text-slate-500">Count</label>
+                            <Input
+                                type="number"
+                                value={generateCount}
+                                onChange={(e) => setGenerateCount(parseInt(e.target.value || "10", 10))}
+                                min={1}
+                                max={50}
+                                className="w-24"
+                            />
+                        </div>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            disabled={!canGenerateAI || isGeneratingMore}
+                            onClick={handleGenerateMore}
+                            className="gap-2"
+                            title={!canGenerateAI ? "Fill Title + Goal to use AI" : undefined}
+                        >
+                            <Sparkles size={14} /> Generate more questions
+                        </Button>
+                        {!canGenerateAI && (
+                            <div className="text-xs text-slate-400">
+                                AI needs Title + Goal.
+                            </div>
+                        )}
+                    </div>
+                )}
             </div>
 
             <div className="space-y-4">
@@ -196,70 +362,16 @@ export function QuizEditor() {
                 </div>
 
                 {questions.map((q, i) => (
-                    <Card key={i} className="group border-slate-200 hover:border-slate-300 transition-colors">
-                        <CardHeader className="flex flex-row items-start gap-4 space-y-0">
-                             <div className="mt-3 text-slate-300 cursor-move hover:text-slate-500 transition-colors">
-                                <GripVertical size={20} />
-                             </div>
-                             <div className="flex-1 space-y-6">
-                                <div className="flex gap-4">
-                                    <Input 
-                                        placeholder="Question text..." 
-                                        value={q.text} 
-                                        onChange={(e) => updateQuestion(i, 'text', e.target.value)}
-                                        maxLength={QUIZ_TEXT_LIMITS.questionText}
-                                        className="font-medium text-lg border-transparent px-0 hover:border-input focus:border-input transition-colors h-auto py-2" 
-                                    />
-                                    <div className="w-24">
-                                        <Input 
-                                            type="number" 
-                                            value={q.time_limit}
-                                            onChange={(e) => updateQuestion(i, 'time_limit', parseInt(e.target.value))}
-                                            className="text-right" 
-                                        />
-                                    </div>
-                                </div>
-                                
-                                <div className="space-y-3">
-                                    {q.options?.map((opt, oi) => (
-                                        <div key={oi} className="flex gap-3 items-center group/opt">
-                                            <div 
-                                                className={`w-8 h-8 rounded-md border-2 flex items-center justify-center text-sm font-bold cursor-pointer transition-colors ${opt.is_correct ? 'bg-green-500 border-green-500 text-white shadow-sm' : 'border-slate-200 text-slate-400 bg-white hover:border-slate-400'}`}
-                                                onClick={() => updateOption(i, oi, 'is_correct', !opt.is_correct)}
-                                            >
-                                                {String.fromCharCode(65 + oi)}
-                                            </div>
-                                            <Input 
-                                                placeholder={`Option ${oi + 1}`} 
-                                                value={opt.text}
-                                                onChange={(e) => updateOption(i, oi, 'text', e.target.value)}
-                                                maxLength={QUIZ_TEXT_LIMITS.optionText}
-                                                className={`h-10 ${opt.is_correct ? 'font-medium text-green-700 bg-green-50 border-green-200 focus-visible:ring-green-500' : ''}`}
-                                            />
-                                        </div>
-                                    ))}
-                                </div>
-
-                                <div className="mt-4 pt-4 border-t border-slate-100">
-                                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block ml-1">Explanation (Optional)</label>
-                                    <Textarea
-                                        placeholder="Explain why the answer is correct..." 
-                                        value={q.explanation || ""}
-                                        onChange={(e) => updateQuestion(i, 'explanation', e.target.value)}
-                                        maxLength={QUIZ_TEXT_LIMITS.explanation}
-                                        rows={2}
-                                        className="bg-slate-50/50 border-slate-200 focus:bg-white transition-colors resize-none" 
-                                    />
-                                    <div className="text-xs text-slate-400 text-right mt-1">
-                                        {(q.explanation || "").length}/{QUIZ_TEXT_LIMITS.explanation}
-                                    </div>
-                                </div>
-                             </div>
-                             <Button variant="ghost" size="icon" onClick={() => handleRemoveQuestion(i)} className="text-slate-300 hover:text-red-500 hover:bg-red-50 -mt-2 -mr-2">
-                                <Trash2 size={18} />
-                             </Button>
-                        </CardHeader>
-                    </Card>
+                    <QuestionEditorCard
+                        key={i}
+                        index={i}
+                        question={q}
+                        onChangeQuestion={(field, value) => updateQuestion(i, field, value)}
+                        onChangeOption={(oi, field, value) => updateOption(i, oi, field, value)}
+                        onRemove={() => handleRemoveQuestion(i)}
+                        onRegenerateOptions={isEditMode ? () => handleRegenerateOptions(i) : undefined}
+                        regenerateDisabled={regeneratingIndex === i}
+                    />
                 ))}
             </div>
         </div>

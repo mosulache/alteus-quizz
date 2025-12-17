@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Link, Navigate } from "react-router-dom";
 import { MobileLayout } from "./layouts/MobileLayout";
 import { TVLayout } from "./layouts/TVLayout";
 import { AdminLayout } from "./layouts/AdminLayout";
@@ -73,7 +73,7 @@ function App() {
         {/* Admin Routes */}
         <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<AdminDashboard />} />
-            <Route path="create" element={<QuizEditor />} />
+            <Route path="create" element={<Navigate to="/admin/create-ai" replace />} />
             <Route path="create-ai" element={<CreateQuizAI />} />
             <Route path="edit/:id" element={<QuizEditor />} />
             <Route path="settings" element={<Settings />} />
