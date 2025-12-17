@@ -45,6 +45,16 @@ type GameState = {
   
   currentQuestion: Question | null;
   participants: Participant[]; 
+
+  settings: {
+    pointsSystem: string;
+    leaderboardFrequency: string;
+    enableTestMode: boolean;
+    requirePlayerNames: boolean;
+    organizationName: string;
+  } | null;
+
+  lastAwards: Record<string, number>;
   
   // Actions
   connect: (name: string, code: string, isHost?: boolean, existingClientId?: string) => void;
@@ -76,6 +86,8 @@ export const useGameStore = create<GameState>((set, get) => ({
   quiz: null,
   currentQuestion: null,
   participants: [],
+  settings: null,
+  lastAwards: {},
 
   connect: (name, code, isHost = false, existingClientId) => {
     // Check for existing ID or generate new
@@ -165,6 +177,8 @@ export const useGameStore = create<GameState>((set, get) => ({
                 questions: [], 
                 totalQuestions: state.totalQuestions 
             },
+            settings: state.settings || null,
+            lastAwards: state.lastAwards || {},
             // Atomically reset answer if needed. This overwrites any previous value in the state update if merged incorrectly,
             // but here we are replacing the whole state slice or merging? Zustand 'set' merges top level.
             // If we provide lastAnswerId: null, it overwrites.
@@ -259,7 +273,9 @@ export const useGameStore = create<GameState>((set, get) => ({
         status: 'WAITING',
         currentQuestionIndex: 0,
         participants: [],
-        currentQuestion: null
+        currentQuestion: null,
+        settings: null,
+        lastAwards: {}
       });
   }
 }));

@@ -5,15 +5,18 @@ import { Card, CardHeader } from "@/components/ui/card";
 import { Plus, Trash2, GripVertical, Save, Loader2 } from "lucide-react";
 import { useQuizStore, type QuizCreate, type Question } from "@/store/quizStore";
 import { useNavigate, useParams } from "react-router-dom";
+import { useSettingsStore } from "@/store/settingsStore";
 
 export function QuizEditor() {
     const navigate = useNavigate();
     const { id } = useParams();
     const { createQuiz, updateQuiz, getQuiz, isLoading } = useQuizStore();
+    const { fetchSettings } = useSettingsStore();
     const isEditMode = !!id;
     
     const [title, setTitle] = useState("New Untitled Quiz");
     const [description, setDescription] = useState("");
+    const [defaultTimer, setDefaultTimer] = useState(30);
     const [questions, setQuestions] = useState<Partial<Question>[]>([
         {
             text: "Question 1",
@@ -35,16 +38,36 @@ export function QuizEditor() {
                 if (quiz) {
                     setTitle(quiz.title);
                     setDescription(quiz.description || "");
+                    setDefaultTimer(quiz.default_time_limit || 30);
                     setQuestions(quiz.questions);
                 }
             });
         }
     }, [id, isEditMode, getQuiz]);
 
+    useEffect(() => {
+        // For new quizzes, seed defaults from Admin Settings
+        if (!isEditMode) {
+            fetchSettings().then((s) => {
+                const timer = s?.default_timer_seconds || 30;
+                setDefaultTimer(timer);
+                setQuestions((prev) => {
+                    // Only auto-apply if the initial state is still untouched "30"
+                    if (prev.length === 1 && (prev[0].time_limit ?? 30) === 30) {
+                        const next = [...prev];
+                        next[0] = { ...next[0], time_limit: timer };
+                        return next;
+                    }
+                    return prev;
+                });
+            });
+        }
+    }, [fetchSettings, isEditMode]);
+
     const handleAddQuestion = () => {
         setQuestions([...questions, {
             text: `Question ${questions.length + 1}`,
-            time_limit: 30,
+            time_limit: defaultTimer,
             points: 1000,
             question_type: "single",
             options: [
@@ -88,10 +111,10 @@ export function QuizEditor() {
         const quizData: QuizCreate = {
             title,
             description,
-            default_time_limit: 30,
+            default_time_limit: defaultTimer,
             questions: questions.map((q, i) => ({
                 text: q.text || "Untitled Question",
-                time_limit: q.time_limit || 30,
+                time_limit: q.time_limit || defaultTimer,
                 points: q.points || 1000,
                 order: i,
                 explanation: q.explanation || "",

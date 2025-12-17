@@ -6,7 +6,7 @@ import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
 export function Game() {
-  const { quiz, currentQuestionIndex, submitAnswer, lastAnswerId, status, currentPlayer, currentQuestion, timeRemaining } = useGameStore();
+  const { quiz, currentQuestionIndex, submitAnswer, lastAnswerId, status, currentPlayer, currentQuestion, timeRemaining, lastAwards } = useGameStore();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -57,6 +57,7 @@ export function Game() {
         ? options.find(o => o.id === lastAnswerId)?.isCorrect 
         : false;
       const correctOption = options.find(o => o.isCorrect);
+      const award = currentPlayer?.id ? (lastAwards?.[currentPlayer.id] ?? null) : null;
 
       return (
         <div className="flex flex-col h-full gap-4 animate-in slide-in-from-right duration-300">
@@ -67,7 +68,9 @@ export function Game() {
                 {isCorrect ? <CheckCircle2 size={64} className="animate-bounce" /> : <XCircle size={64} className="animate-shake" />}
                 <h2 className="text-3xl font-bold">{isCorrect ? "Correct!" : "Wrong!"}</h2>
                 <div className="text-lg font-medium opacity-90 bg-white/20 px-4 py-1 rounded-full">
-                    {isCorrect ? "+100 Points" : "Better luck next time"}
+                    {isCorrect
+                        ? (award !== null ? `+${award} Points` : "Points awarded")
+                        : "Better luck next time"}
                 </div>
             </div>
 

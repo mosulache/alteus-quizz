@@ -14,7 +14,8 @@ export function HostGame() {
         status, 
         nextQuestion, 
         participants,
-        skipTimer
+        skipTimer,
+        settings
     } = useGameStore();
     
     const navigate = useNavigate();
@@ -32,6 +33,10 @@ export function HostGame() {
 
     if (status === 'REVIEW') {
         // Show correct answer and stats
+        const leaderboardMode = settings?.leaderboardFrequency || "every_round";
+        const showLeaderboard = leaderboardMode !== "end_only";
+        const sorted = [...participants].sort((a, b) => b.score - a.score);
+        const board = leaderboardMode === "top_3" ? sorted.slice(0, 3) : sorted;
         
         return (
             <div className="flex flex-col h-full gap-8 animate-in fade-in slide-in-from-bottom-8 duration-500">
@@ -70,6 +75,31 @@ export function HostGame() {
                         <div>
                             <h3 className="text-lg font-bold text-yellow-500 uppercase tracking-wider mb-1">Explanation</h3>
                             <p className="text-xl text-slate-200 leading-relaxed">{question.explanation}</p>
+                        </div>
+                    </div>
+                )}
+
+                {showLeaderboard && (
+                    <div className="max-w-5xl mx-auto w-full bg-slate-900/50 rounded-2xl border border-slate-800 p-6 animate-in fade-in delay-200">
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-lg font-black text-slate-200 uppercase tracking-widest">
+                                Leaderboard {leaderboardMode === "top_3" ? "(Top 3)" : ""}
+                            </h3>
+                            <div className="text-xs text-slate-500 font-mono">
+                                {settings?.pointsSystem ? `Points: ${settings.pointsSystem}` : ""}
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            {board.map((p, idx) => (
+                                <div key={p.id} className="flex items-center justify-between bg-slate-800/60 border border-slate-700 rounded-xl px-4 py-3">
+                                    <div className="flex items-center gap-3">
+                                        <span className="font-mono text-slate-500 w-8 text-right">{idx + 1}.</span>
+                                        <div className="w-3 h-3 rounded-full" style={{ background: p.color }} />
+                                        <span className="text-slate-200 font-bold">{p.name}</span>
+                                    </div>
+                                    <span className="font-mono font-black text-slate-300">{p.score}</span>
+                                </div>
+                            ))}
                         </div>
                     </div>
                 )}

@@ -5,6 +5,15 @@ import uuid
 
 # --- Base Models ---
 
+class AppSettingsBase(SQLModel):
+    default_timer_seconds: int = 30
+    points_system: str = "standard"  # standard, simple, no_points
+    leaderboard_frequency: str = "every_round"  # every_round, end_only, top_3
+    enable_test_mode: bool = True
+    require_player_names: bool = True
+    organization_name: str = "Alteus.ai"
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
 class QuizBase(SQLModel):
     title: str
     description: Optional[str] = None
@@ -39,6 +48,10 @@ class ParticipantBase(SQLModel):
     joined_at: datetime = Field(default_factory=datetime.utcnow)
 
 # --- Table Models ---
+
+class AppSettings(AppSettingsBase, table=True):
+    # Singleton row; we will always read/update id=1
+    id: Optional[int] = Field(default=1, primary_key=True)
 
 class Quiz(QuizBase, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
@@ -92,3 +105,16 @@ class QuizRead(QuizBase):
 class SessionRead(SessionBase):
     id: int
     quiz: QuizRead
+
+# --- Settings Schemas ---
+
+class AppSettingsRead(AppSettingsBase):
+    id: int
+
+class AppSettingsUpdate(SQLModel):
+    default_timer_seconds: Optional[int] = None
+    points_system: Optional[str] = None
+    leaderboard_frequency: Optional[str] = None
+    enable_test_mode: Optional[bool] = None
+    require_player_names: Optional[bool] = None
+    organization_name: Optional[str] = None

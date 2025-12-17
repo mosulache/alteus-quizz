@@ -11,7 +11,19 @@ import json
 import os
 
 from database import init_db, get_session
-from models import Quiz, QuizCreate, QuizRead, Question, AnswerOption, Session, SessionRead, SessionBase
+from models import (
+    Quiz,
+    QuizCreate,
+    QuizRead,
+    Question,
+    AnswerOption,
+    Session,
+    SessionRead,
+    SessionBase,
+    AppSettings,
+    AppSettingsRead,
+    AppSettingsUpdate,
+)
 from game_manager import manager, games, ActiveGame
 
 @asynccontextmanager
@@ -47,6 +59,40 @@ app.add_middleware(
 @app.get("/")
 def read_root():
     return {"message": "Alteus Quizzer Backend is running!"}
+
+# --- App Settings ---
+
+SETTINGS_SINGLETON_ID = 1
+
+async def _get_or_create_settings(db: AsyncSession) -> AppSettings:
+    result = await db.exec(select(AppSettings).where(AppSettings.id == SETTINGS_SINGLETON_ID))
+    settings = result.one_or_none()
+    if settings:
+        return settings
+    settings = AppSettings(id=SETTINGS_SINGLETON_ID)
+    db.add(settings)
+    await db.commit()
+    await db.refresh(settings)
+    return settings
+
+@app.get("/settings", response_model=AppSettingsRead)
+async def read_settings(db: AsyncSession = Depends(get_session)):
+    return await _get_or_create_settings(db)
+
+@app.put("/settings", response_model=AppSettingsRead)
+async def update_settings(payload: AppSettingsUpdate, db: AsyncSession = Depends(get_session)):
+    settings = await _get_or_create_settings(db)
+    data = payload.model_dump(exclude_unset=True)
+    for k, v in data.items():
+        if v is not None:
+            setattr(settings, k, v)
+    # bump updated_at
+    from datetime import datetime
+    settings.updated_at = datetime.utcnow()
+    db.add(settings)
+    await db.commit()
+    await db.refresh(settings)
+    return settings
 
 # --- Quiz CRUD ---
 
@@ -200,6 +246,8 @@ async def create_session(quiz_id: int, session_db: AsyncSession = Depends(get_se
     if not quiz:
         raise HTTPException(status_code=404, detail="Quiz not found")
 
+    settings = await _get_or_create_settings(session_db)
+
     # Create Session in DB
     code = generate_code()
     # Ensure uniqueness loop (simplified)
@@ -226,7 +274,18 @@ async def create_session(quiz_id: int, session_db: AsyncSession = Depends(get_se
         ]
     }
     
-    games[code] = ActiveGame(quiz_data, code)
+    games[code] = ActiveGame(
+        quiz_data,
+        code,
+        settings={
+            "defaultTimerSeconds": settings.default_timer_seconds,
+            "pointsSystem": settings.points_system,
+            "leaderboardFrequency": settings.leaderboard_frequency,
+            "enableTestMode": settings.enable_test_mode,
+            "requirePlayerNames": settings.require_player_names,
+            "organizationName": settings.organization_name,
+        },
+    )
     
     # Manually attach the fully loaded quiz to the session object
     # This prevents the MissingGreenlet error when Pydantic tries to access the lazy relationship
