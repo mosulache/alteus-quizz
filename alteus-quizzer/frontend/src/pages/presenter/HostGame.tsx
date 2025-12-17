@@ -14,6 +14,8 @@ export function HostGame() {
         status, 
         nextQuestion, 
         participants,
+        connectedParticipantsCount,
+        answersReceived,
         skipTimer,
         settings
     } = useGameStore();
@@ -68,7 +70,7 @@ export function HostGame() {
                 </div>
 
                 {question.explanation && (
-                    <div className="max-w-4xl mx-auto w-full bg-slate-800/80 border border-slate-700 p-6 rounded-2xl flex gap-4 items-start animate-in slide-in-from-bottom-4 delay-300">
+                    <div className="max-w-6xl mx-auto w-full bg-slate-800/80 border border-slate-700 p-6 rounded-2xl flex gap-4 items-start animate-in slide-in-from-bottom-4 delay-300">
                         <div className="bg-yellow-500/10 p-3 rounded-lg text-yellow-500">
                             <Lightbulb size={32} />
                         </div>
@@ -80,7 +82,7 @@ export function HostGame() {
                 )}
 
                 {showLeaderboard && (
-                    <div className="max-w-5xl mx-auto w-full bg-slate-900/50 rounded-2xl border border-slate-800 p-6 animate-in fade-in delay-200">
+                    <div className="max-w-6xl mx-auto w-full bg-slate-900/50 rounded-2xl border border-slate-800 p-6 animate-in fade-in delay-200">
                         <div className="flex items-center justify-between mb-4">
                             <h3 className="text-lg font-black text-slate-200 uppercase tracking-widest">
                                 Leaderboard {leaderboardMode === "top_3" ? "(Top 3)" : ""}
@@ -120,9 +122,8 @@ export function HostGame() {
                     Question {currentQuestionIndex + 1} / {(quiz?.totalQuestions ?? 0)}
                  </div>
                  <div className="flex items-center gap-4">
-                     {/* Mock Answers Counter */}
                      <div className="bg-slate-800 px-6 py-3 rounded-xl border border-slate-700 text-2xl font-mono text-blue-400">
-                        {Math.floor(Math.random() * participants.length)} / {participants.length} Answers
+                        {answersReceived} / {connectedParticipantsCount || participants.length} Answers
                      </div>
                  </div>
             </div>

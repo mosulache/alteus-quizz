@@ -11,6 +11,7 @@ import { HostResults } from "./pages/presenter/HostResults";
 import { AdminDashboard } from "./pages/admin/AdminDashboard";
 import { QuizEditor } from "./pages/admin/QuizEditor";
 import { Settings } from "./pages/admin/Settings";
+import { CreateQuizAI } from "./pages/admin/CreateQuizAI";
 
 // Landing Component
 const Landing = () => (
@@ -73,6 +74,7 @@ function App() {
         <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<AdminDashboard />} />
             <Route path="create" element={<QuizEditor />} />
+            <Route path="create-ai" element={<CreateQuizAI />} />
             <Route path="edit/:id" element={<QuizEditor />} />
             <Route path="settings" element={<Settings />} />
         </Route>

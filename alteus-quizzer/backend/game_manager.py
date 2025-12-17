@@ -186,6 +186,9 @@ class ActiveGame:
 
     def get_state(self):
         # Prepare safe state for clients
+        connected_ids = set(manager.participant_connections.get(self.session_code, {}).keys())
+        # Count answers only from currently connected participants (host excluded by design)
+        answers_received = sum(1 for pid in self.answers.keys() if pid in connected_ids)
         current_q = None
         if self.current_question_index < len(self.quiz['questions']):
             q = self.quiz['questions'][self.current_question_index]
@@ -208,6 +211,8 @@ class ActiveGame:
             "currentQuestionIndex": self.current_question_index,
             "timeRemaining": self.time_remaining,
             "participants": [{"id": k, **v} for k, v in self.participants.items()],
+            "connectedParticipantsCount": len(connected_ids),
+            "answersReceived": answers_received if self.status == "ACTIVE" else 0,
             "currentQuestion": current_q,
             "totalQuestions": len(self.quiz['questions']),
             "settings": {

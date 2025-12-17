@@ -26,6 +26,39 @@ from models import (
 )
 from game_manager import manager, games, ActiveGame
 
+# --- Text constraints (keep in sync with frontend + specs) ---
+QUIZ_TEXT_LIMITS = {
+    "title": 60,
+    "description": 120,
+    "question_text": 90,
+    "option_text": 45,
+    "explanation": 220,
+}
+
+def _clamp_str(v: str | None, limit: int) -> str | None:
+    if v is None:
+        return None
+    # Keep single-line (avoid TV/UI breakage)
+    v = v.replace("\r\n", " ").replace("\n", " ").replace("\r", " ")
+    v = " ".join(v.split())  # collapse whitespace
+    return v[:limit]
+
+def _sanitize_quiz_payload(quiz: QuizCreate) -> QuizCreate:
+    """
+    Defensive sanitation so we don't persist overly long strings even if frontend constraints are bypassed.
+    This avoids breaking existing DB data and keeps TV layout readable.
+    """
+    quiz.title = _clamp_str(quiz.title, QUIZ_TEXT_LIMITS["title"]) or ""
+    quiz.description = _clamp_str(quiz.description, QUIZ_TEXT_LIMITS["description"])
+
+    for qi, q in enumerate(quiz.questions):
+        q.text = _clamp_str(q.text, QUIZ_TEXT_LIMITS["question_text"]) or f"Question {qi + 1}"
+        q.explanation = _clamp_str(q.explanation, QUIZ_TEXT_LIMITS["explanation"])
+        # Ensure options exist and are clamped
+        for oi, opt in enumerate(q.options):
+            opt.text = _clamp_str(opt.text, QUIZ_TEXT_LIMITS["option_text"]) or f"Option {oi + 1}"
+    return quiz
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
@@ -98,6 +131,7 @@ async def update_settings(payload: AppSettingsUpdate, db: AsyncSession = Depends
 
 @app.post("/quizzes/", response_model=QuizRead)
 async def create_quiz(quiz: QuizCreate, db: AsyncSession = Depends(get_session)):
+    quiz = _sanitize_quiz_payload(quiz)
     # Create Quiz instance
     db_quiz = Quiz(
         title=quiz.title,
@@ -144,6 +178,7 @@ async def create_quiz(quiz: QuizCreate, db: AsyncSession = Depends(get_session))
 
 @app.put("/quizzes/{quiz_id}", response_model=QuizRead)
 async def update_quiz(quiz_id: int, quiz_data: QuizCreate, db: AsyncSession = Depends(get_session)):
+    quiz_data = _sanitize_quiz_payload(quiz_data)
     # Fetch existing quiz
     stmt = select(Quiz).where(Quiz.id == quiz_id).options(
         selectinload(Quiz.questions).selectinload(Question.options)

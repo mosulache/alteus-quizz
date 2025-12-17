@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
-import { Play, Edit, Plus, Loader2 } from "lucide-react";
+import { Play, Edit, Plus, Loader2, Sparkles } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useQuizStore } from "@/store/quizStore";
 import { useGameStore } from "@/store/gameStore";
@@ -34,9 +34,16 @@ export function AdminDashboard() {
         <div className="space-y-6 animate-in fade-in duration-500">
             <div className="flex justify-between items-center">
                 <h1 className="text-3xl font-bold tracking-tight text-slate-900">Dashboard</h1>
-                <Link to="/admin/create">
-                    <Button className="gap-2 shadow-sm"><Plus size={16}/> New Quiz</Button>
-                </Link>
+                <div className="flex gap-2">
+                    <Link to="/admin/create">
+                        <Button className="gap-2 shadow-sm"><Plus size={16}/> New Quiz</Button>
+                    </Link>
+                    <Link to="/admin/create-ai">
+                        <Button variant="outline" className="gap-2 shadow-sm">
+                            <Sparkles size={16}/> AI Quiz
+                        </Button>
+                    </Link>
+                </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

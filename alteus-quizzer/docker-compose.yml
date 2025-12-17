@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   db:
     image: postgres:15
@@ -18,5 +16,7 @@ volumes:
   postgres_data:
     # Pin volume name to avoid accidental "new volume" creation when the compose
     # project name / working directory changes.
-    name: alteus_quizzer_postgres_data
+    # NOTE: This project previously used a volume named `alteus-quizzer_postgres_data`.
+    # If you had quizzes created earlier, keep using that existing volume name.
+    name: alteus-quizzer_postgres_data
 

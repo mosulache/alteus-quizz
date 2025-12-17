@@ -3,14 +3,13 @@
 Pentru acces la LLM Api, apelam la Alteus.ai, care oifera API endpoints care mai departe duc la un API  de la un provider llm de tipul openai, gemini, etc, (ce poate fi configurat in alteus)
 
 
-Pentru test incearca si cu 
-https://providers.alteus.ai/api/responses
+
 
 ## Exemplu de conectare curl:
 
-curl -X POST "https://console.alteus.ai/api/responses" \
+curl -X POST "https://providers-api.tech.esolutions.ro/api/responses" \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer 18f5092b55cdcecb78cfd81493f8feca83a27bc4c4dd624739e973dafb3c4db1" \
+  -H "Authorization: Bearer your-api-key-here" \
   -d '{
   "endpoint_id": "2804ec65-c7ea-4410-9e40-b425a2c76341",
   "input": [
@@ -30,7 +29,7 @@ curl -X POST "https://console.alteus.ai/api/responses" \
 
 
 ## exemplu  JavaScript
-const response = await fetch('http://localhost:8000/api/responses', {
+const response = await fetch('https://providers-api.tech.esolutions.ro/api/responses', {
   method: 'POST',
   headers: {
     'Content-Type': 'application/json',
@@ -75,7 +74,7 @@ while (true) {
 import requests
 import json
 
-url = "http://localhost:8000/api/responses"
+url = "https://providers-api.tech.esolutions.ro/api/responses"
 headers = {
     "Content-Type": "application/json",
     "Authorization": f"Bearer your-api-key-here"

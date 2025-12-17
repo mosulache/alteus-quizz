@@ -35,6 +35,8 @@ type GameState = {
   status: GameStatus;
   currentQuestionIndex: number;
   timeRemaining: number;
+  connectedParticipantsCount: number;
+  answersReceived: number;
   
   // Data
   quiz: {
@@ -83,6 +85,8 @@ export const useGameStore = create<GameState>((set, get) => ({
   status: 'WAITING',
   currentQuestionIndex: 0,
   timeRemaining: 0,
+  connectedParticipantsCount: 0,
+  answersReceived: 0,
   quiz: null,
   currentQuestion: null,
   participants: [],
@@ -172,6 +176,8 @@ export const useGameStore = create<GameState>((set, get) => ({
             timeRemaining: state.timeRemaining,
             participants: state.participants,
             currentQuestion: state.currentQuestion,
+            connectedParticipantsCount: state.connectedParticipantsCount ?? 0,
+            answersReceived: state.answersReceived ?? 0,
             quiz: { 
                 title: "Quiz", // Backend doesn't send full quiz title in state usually, maybe fix backend
                 questions: [], 
@@ -275,7 +281,9 @@ export const useGameStore = create<GameState>((set, get) => ({
         participants: [],
         currentQuestion: null,
         settings: null,
-        lastAwards: {}
+        lastAwards: {},
+        connectedParticipantsCount: 0,
+        answersReceived: 0
       });
   }
 }));

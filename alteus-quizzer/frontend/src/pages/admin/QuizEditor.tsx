@@ -1,11 +1,13 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Plus, Trash2, GripVertical, Save, Loader2 } from "lucide-react";
 import { useQuizStore, type QuizCreate, type Question } from "@/store/quizStore";
 import { useNavigate, useParams } from "react-router-dom";
 import { useSettingsStore } from "@/store/settingsStore";
+import { QUIZ_TEXT_LIMITS } from "@/lib/quizConstraints";
 
 export function QuizEditor() {
     const navigate = useNavigate();
@@ -17,20 +19,34 @@ export function QuizEditor() {
     const [title, setTitle] = useState("New Untitled Quiz");
     const [description, setDescription] = useState("");
     const [defaultTimer, setDefaultTimer] = useState(30);
+
+    const makeDefaultQuestion = (index: number, timerSeconds: number): Partial<Question> => ({
+        text: `Question ${index}`,
+        time_limit: timerSeconds,
+        points: 1000,
+        question_type: "single",
+        options: [
+            { text: "", is_correct: false, order: 0 },
+            { text: "", is_correct: false, order: 1 },
+            { text: "", is_correct: false, order: 2 },
+            { text: "", is_correct: false, order: 3 },
+        ],
+    });
+
     const [questions, setQuestions] = useState<Partial<Question>[]>([
-        {
-            text: "Question 1",
-            time_limit: 30,
-            points: 1000,
-            question_type: "single",
-            options: [
-                { text: "", is_correct: false, order: 0 },
-                { text: "", is_correct: false, order: 1 },
-                { text: "", is_correct: false, order: 2 },
-                { text: "", is_correct: false, order: 3 },
-            ]
-        }
+        makeDefaultQuestion(1, 30),
     ]);
+
+    useEffect(() => {
+        // Important: switching from /admin/edit/:id -> /admin/create can reuse the same component instance.
+        // Without a reset, the local form state stays populated with the previous quiz data.
+        if (!isEditMode) {
+            setTitle("New Untitled Quiz");
+            setDescription("");
+            setDefaultTimer(30);
+            setQuestions([makeDefaultQuestion(1, 30)]);
+        }
+    }, [isEditMode]);
 
     useEffect(() => {
         if (isEditMode && id) {
@@ -65,18 +81,7 @@ export function QuizEditor() {
     }, [fetchSettings, isEditMode]);
 
     const handleAddQuestion = () => {
-        setQuestions([...questions, {
-            text: `Question ${questions.length + 1}`,
-            time_limit: defaultTimer,
-            points: 1000,
-            question_type: "single",
-            options: [
-                { text: "", is_correct: false, order: 0 },
-                { text: "", is_correct: false, order: 1 },
-                { text: "", is_correct: false, order: 2 },
-                { text: "", is_correct: false, order: 3 },
-            ]
-        }]);
+        setQuestions([...questions, makeDefaultQuestion(questions.length + 1, defaultTimer)]);
     };
 
     const handleRemoveQuestion = (index: number) => {
@@ -159,17 +164,26 @@ export function QuizEditor() {
                         placeholder="Enter quiz title" 
                         value={title} 
                         onChange={(e) => setTitle(e.target.value)}
+                        maxLength={QUIZ_TEXT_LIMITS.title}
                         className="text-lg font-medium" 
                     />
+                    <div className="text-xs text-slate-400 text-right">
+                        {title.length}/{QUIZ_TEXT_LIMITS.title}
+                    </div>
                 </div>
                 <div className="space-y-2">
                     <label className="text-sm font-medium text-slate-700">Description</label>
-                    <Input 
+                    <Textarea
                         placeholder="Short description..." 
                         value={description}
                         onChange={(e) => setDescription(e.target.value)}
-                        className="text-slate-500" 
+                        maxLength={QUIZ_TEXT_LIMITS.description}
+                        rows={2}
+                        className="text-slate-600 resize-none" 
                     />
+                    <div className="text-xs text-slate-400 text-right">
+                        {description.length}/{QUIZ_TEXT_LIMITS.description}
+                    </div>
                 </div>
             </div>
 
@@ -193,6 +207,7 @@ export function QuizEditor() {
                                         placeholder="Question text..." 
                                         value={q.text} 
                                         onChange={(e) => updateQuestion(i, 'text', e.target.value)}
+                                        maxLength={QUIZ_TEXT_LIMITS.questionText}
                                         className="font-medium text-lg border-transparent px-0 hover:border-input focus:border-input transition-colors h-auto py-2" 
                                     />
                                     <div className="w-24">
@@ -218,6 +233,7 @@ export function QuizEditor() {
                                                 placeholder={`Option ${oi + 1}`} 
                                                 value={opt.text}
                                                 onChange={(e) => updateOption(i, oi, 'text', e.target.value)}
+                                                maxLength={QUIZ_TEXT_LIMITS.optionText}
                                                 className={`h-10 ${opt.is_correct ? 'font-medium text-green-700 bg-green-50 border-green-200 focus-visible:ring-green-500' : ''}`}
                                             />
                                         </div>
@@ -226,12 +242,17 @@ export function QuizEditor() {
 
                                 <div className="mt-4 pt-4 border-t border-slate-100">
                                     <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block ml-1">Explanation (Optional)</label>
-                                    <Input 
+                                    <Textarea
                                         placeholder="Explain why the answer is correct..." 
                                         value={q.explanation || ""}
                                         onChange={(e) => updateQuestion(i, 'explanation', e.target.value)}
-                                        className="bg-slate-50/50 border-slate-200 focus:bg-white transition-colors" 
+                                        maxLength={QUIZ_TEXT_LIMITS.explanation}
+                                        rows={2}
+                                        className="bg-slate-50/50 border-slate-200 focus:bg-white transition-colors resize-none" 
                                     />
+                                    <div className="text-xs text-slate-400 text-right mt-1">
+                                        {(q.explanation || "").length}/{QUIZ_TEXT_LIMITS.explanation}
+                                    </div>
                                 </div>
                              </div>
                              <Button variant="ghost" size="icon" onClick={() => handleRemoveQuestion(i)} className="text-slate-300 hover:text-red-500 hover:bg-red-50 -mt-2 -mr-2">
