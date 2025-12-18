@@ -35,6 +35,26 @@ async def init_db():
             # the column already exists under different casing/schema settings.
             pass
 
+        # Ensure Alteus override columns exist on `appsettings` for older databases.
+        try:
+            cols_res = await conn.exec_driver_sql(
+                """
+                SELECT column_name
+                FROM information_schema.columns
+                WHERE table_name = 'appsettings'
+                """
+            )
+            existing_cols = {row[0] for row in (cols_res.all() or [])}
+            if "alteus_api_url" not in existing_cols:
+                await conn.exec_driver_sql("ALTER TABLE appsettings ADD COLUMN alteus_api_url TEXT")
+            if "alteus_api_key" not in existing_cols:
+                await conn.exec_driver_sql("ALTER TABLE appsettings ADD COLUMN alteus_api_key TEXT")
+            if "alteus_endpoint_id" not in existing_cols:
+                await conn.exec_driver_sql("ALTER TABLE appsettings ADD COLUMN alteus_endpoint_id TEXT")
+        except Exception:
+            # Best-effort; don't block startup if schema inspection isn't available.
+            pass
+
 async def get_session() -> AsyncSession:
     async_session = sessionmaker(
         engine, class_=AsyncSession, expire_on_commit=False

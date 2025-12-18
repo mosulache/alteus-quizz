@@ -2,11 +2,14 @@ from __future__ import annotations
 
 from typing import List, Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
+from sqlmodel import select
+from sqlmodel.ext.asyncio.session import AsyncSession
 from pydantic import BaseModel, Field
 
 from alteus_client import AlteusConfigError, AlteusResponseError, alteus_call_json
-from models import AnswerOptionCreate, QuestionCreate
+from database import get_session
+from models import AnswerOptionCreate, QuestionCreate, AppSettings
 
 
 router = APIRouter(prefix="/api/ai", tags=["ai"])
@@ -261,15 +264,35 @@ class RegenerateOptionsResponse(BaseModel):
     explanation: str
 
 
+SETTINGS_SINGLETON_ID = 1
+
+
+async def _get_alteus_overrides(db: AsyncSession) -> dict:
+    """
+    Returns optional overrides for Alteus provider config from DB settings.
+    If unset/empty, `alteus_client` will fall back to .env defaults.
+    """
+    res = await db.exec(select(AppSettings).where(AppSettings.id == SETTINGS_SINGLETON_ID))
+    s = res.one_or_none()
+    if not s:
+        return {}
+    return {
+        "api_url": getattr(s, "alteus_api_url", None),
+        "api_key": getattr(s, "alteus_api_key", None),
+        "endpoint_id": getattr(s, "alteus_endpoint_id", None),
+    }
+
+
 @router.post("/quiz/description", response_model=DescriptionResponse)
-async def generate_description(payload: DescriptionRequest):
+async def generate_description(payload: DescriptionRequest, db: AsyncSession = Depends(get_session)):
     title = _clamp_str(payload.title, QUIZ_TEXT_LIMITS["title"]) or ""
     goal = _clamp_str(payload.goal, QUIZ_TEXT_LIMITS["description"]) or ""
     language = _language_default(payload.language)
 
     prompt = _prompt_description(title=title, goal=goal, language=language)
     try:
-        data = await alteus_call_json(prompt)
+        overrides = await _get_alteus_overrides(db)
+        data = await alteus_call_json(prompt, **overrides)
         description = _clamp_str(str(data.get("description", "")).strip(), QUIZ_TEXT_LIMITS["description"]) or ""
         if not description:
             raise AlteusResponseError("Model returned empty description.")
@@ -279,7 +302,7 @@ async def generate_description(payload: DescriptionRequest):
 
 
 @router.post("/quiz/questions", response_model=QuestionsResponse)
-async def generate_questions(payload: QuestionsRequest):
+async def generate_questions(payload: QuestionsRequest, db: AsyncSession = Depends(get_session)):
     title = _clamp_str(payload.title, QUIZ_TEXT_LIMITS["title"]) or ""
     goal = _clamp_str(payload.goal, QUIZ_TEXT_LIMITS["description"]) or ""
     description = _clamp_str(payload.description, QUIZ_TEXT_LIMITS["description"])
@@ -299,7 +322,8 @@ async def generate_questions(payload: QuestionsRequest):
     )
 
     try:
-        data = await alteus_call_json(prompt, timeout_s=90.0)
+        overrides = await _get_alteus_overrides(db)
+        data = await alteus_call_json(prompt, timeout_s=90.0, **overrides)
         raw = data.get("questions")
         if not isinstance(raw, list) or len(raw) != count:
             raise AlteusResponseError(f"Model must return exactly {count} questions.")
@@ -314,7 +338,7 @@ async def generate_questions(payload: QuestionsRequest):
 
 
 @router.post("/quiz/questions/more", response_model=QuestionsResponse)
-async def generate_more_questions(payload: QuestionsRequest):
+async def generate_more_questions(payload: QuestionsRequest, db: AsyncSession = Depends(get_session)):
     title = _clamp_str(payload.title, QUIZ_TEXT_LIMITS["title"]) or ""
     goal = _clamp_str(payload.goal, QUIZ_TEXT_LIMITS["description"]) or ""
     description = _clamp_str(payload.description, QUIZ_TEXT_LIMITS["description"])
@@ -334,7 +358,8 @@ async def generate_more_questions(payload: QuestionsRequest):
     )
 
     try:
-        data = await alteus_call_json(prompt, timeout_s=90.0)
+        overrides = await _get_alteus_overrides(db)
+        data = await alteus_call_json(prompt, timeout_s=90.0, **overrides)
         raw = data.get("questions")
         if not isinstance(raw, list) or len(raw) != count:
             raise AlteusResponseError(f"Model must return exactly {count} questions.")
@@ -349,7 +374,7 @@ async def generate_more_questions(payload: QuestionsRequest):
 
 
 @router.post("/quiz/question/options/regenerate", response_model=RegenerateOptionsResponse)
-async def regenerate_options(payload: RegenerateOptionsRequest):
+async def regenerate_options(payload: RegenerateOptionsRequest, db: AsyncSession = Depends(get_session)):
     goal = _clamp_str(payload.goal, QUIZ_TEXT_LIMITS["description"]) or ""
     description = _clamp_str(payload.description, QUIZ_TEXT_LIMITS["description"])
     language = _language_default(payload.language)
@@ -364,7 +389,8 @@ async def regenerate_options(payload: RegenerateOptionsRequest):
     )
 
     try:
-        data = await alteus_call_json(prompt, timeout_s=60.0)
+        overrides = await _get_alteus_overrides(db)
+        data = await alteus_call_json(prompt, timeout_s=60.0, **overrides)
         raw_opts = data.get("options")
         if not isinstance(raw_opts, list) or len(raw_opts) != 4:
             raise AlteusResponseError("Model must return exactly 4 options.")

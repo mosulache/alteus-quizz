@@ -9,6 +9,9 @@ export type AppSettings = {
   enable_test_mode: boolean;
   require_player_names: boolean;
   organization_name: string;
+  alteus_api_url?: string | null;
+  alteus_api_key?: string | null;
+  alteus_endpoint_id?: string | null;
   updated_at: string;
 };
 

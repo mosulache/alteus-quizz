@@ -13,6 +13,10 @@ class AppSettingsBase(SQLModel):
     enable_test_mode: bool = True
     require_player_names: bool = True
     organization_name: str = "Alteus.ai"
+    # Optional Alteus provider overrides (if null/empty => fallback to .env defaults)
+    alteus_api_url: Optional[str] = Field(default=None, sa_column=Column(Text))
+    alteus_api_key: Optional[str] = Field(default=None, sa_column=Column(Text))
+    alteus_endpoint_id: Optional[str] = Field(default=None, sa_column=Column(Text))
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
 class QuizBase(SQLModel):
@@ -120,3 +124,6 @@ class AppSettingsUpdate(SQLModel):
     enable_test_mode: Optional[bool] = None
     require_player_names: Optional[bool] = None
     organization_name: Optional[str] = None
+    alteus_api_url: Optional[str] = None
+    alteus_api_key: Optional[str] = None
+    alteus_endpoint_id: Optional[str] = None

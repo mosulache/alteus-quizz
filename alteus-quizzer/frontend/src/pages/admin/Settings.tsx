@@ -15,6 +15,9 @@ export function Settings() {
         enable_test_mode: true,
         require_player_names: true,
         organization_name: "Alteus.ai",
+        alteus_api_url: "",
+        alteus_api_key: "",
+        alteus_endpoint_id: "",
     }), []);
 
     const [form, setForm] = useState(defaults);
@@ -30,6 +33,9 @@ export function Settings() {
                 enable_test_mode: s.enable_test_mode,
                 require_player_names: s.require_player_names,
                 organization_name: s.organization_name,
+                alteus_api_url: (s.alteus_api_url || "").toString(),
+                alteus_api_key: (s.alteus_api_key || "").toString(),
+                alteus_endpoint_id: (s.alteus_endpoint_id || "").toString(),
             };
             setForm(next);
             setLoadedSnapshot(next);
@@ -176,6 +182,53 @@ export function Settings() {
                             <RefreshCw size={14} /> Reset to Defaults
                          </Button>
                     </CardFooter>
+                </Card>
+
+                {/* Alteus Provider */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Alteus (AI Provider)</CardTitle>
+                        <CardDescription>
+                            Dacă le lași goale, backend-ul folosește valorile din <code>.env</code> ca până acum.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="space-y-2 md:col-span-2">
+                                <label className="text-sm font-medium text-slate-700">ALTEUS_API_URL</label>
+                                <Input
+                                    value={form.alteus_api_url}
+                                    disabled={isLoading}
+                                    placeholder="https://providers-api.tech.esolutions.ro/api/responses"
+                                    onChange={(e) => setForm((p) => ({ ...p, alteus_api_url: e.target.value }))}
+                                />
+                                <p className="text-xs text-slate-500">Endpoint-ul API (opțional override).</p>
+                            </div>
+
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium text-slate-700">ALTEUS_API_KEY</label>
+                                <Input
+                                    type="password"
+                                    value={form.alteus_api_key}
+                                    disabled={isLoading}
+                                    placeholder="(lasă gol ca să folosești .env)"
+                                    onChange={(e) => setForm((p) => ({ ...p, alteus_api_key: e.target.value }))}
+                                />
+                                <p className="text-xs text-slate-500">Cheia e salvată în DB (admin settings).</p>
+                            </div>
+
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium text-slate-700">ALTEUS_ENDPOINT_ID</label>
+                                <Input
+                                    value={form.alteus_endpoint_id}
+                                    disabled={isLoading}
+                                    placeholder="ex: 2804ec65-c7ea-4410-9e40-b425a2c76341"
+                                    onChange={(e) => setForm((p) => ({ ...p, alteus_endpoint_id: e.target.value }))}
+                                />
+                                <p className="text-xs text-slate-500">ID-ul endpoint-ului / modelului.</p>
+                            </div>
+                        </div>
+                    </CardContent>
                 </Card>
             </div>
 

@@ -96,13 +96,20 @@ def _merge_stream_text(prev: str, chunk: str) -> str:
     return prev + chunk
 
 
-async def alteus_call_json(prompt_text: str, *, timeout_s: float = 60.0) -> Dict[str, Any]:
+async def alteus_call_json(
+    prompt_text: str,
+    *,
+    timeout_s: float = 60.0,
+    api_url: Optional[str] = None,
+    api_key: Optional[str] = None,
+    endpoint_id: Optional[str] = None,
+) -> Dict[str, Any]:
     """
     Calls Alteus /api/responses with stream=true internally. Returns parsed JSON object produced by the model.
     """
-    api_url = _get_env("ALTEUS_API_URL") or DEFAULT_ALTEUS_API_URL
-    api_key = _get_env("ALTEUS_API_KEY", ["ALTEUS_APY_KEY"])
-    endpoint_id = _get_env("ALTEUS_ENDPOINT_ID", ["ALTEUS_ENTPOINT_ID"])
+    api_url = (api_url or "").strip() or _get_env("ALTEUS_API_URL") or DEFAULT_ALTEUS_API_URL
+    api_key = (api_key or "").strip() or _get_env("ALTEUS_API_KEY", ["ALTEUS_APY_KEY"])
+    endpoint_id = (endpoint_id or "").strip() or _get_env("ALTEUS_ENDPOINT_ID", ["ALTEUS_ENTPOINT_ID"])
     if not api_key:
         raise AlteusConfigError("Missing ALTEUS_API_KEY in environment.")
     if not endpoint_id:

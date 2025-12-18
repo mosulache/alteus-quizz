@@ -1,0 +1,2 @@
+pentru un curs de AI,  Audienta variata ca pregatire tehnica si cunostinte despre AI
+Scopul intrebarilor: stabilirea nivelului de cunostinte AI in subiecte precum "antrenare AI", RAG, MCP, chestiuni mai avansate sau subtile de prompting, ML vs AI, LLM si alte tipuri de AI. mituri si preconceptii

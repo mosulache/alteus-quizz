@@ -123,8 +123,15 @@ async def update_settings(payload: AppSettingsUpdate, db: AsyncSession = Depends
     settings = await _get_or_create_settings(db)
     data = payload.model_dump(exclude_unset=True)
     for k, v in data.items():
-        if v is not None:
-            setattr(settings, k, v)
+        if v is None:
+            continue
+        # Treat empty strings as "unset" so we fall back to .env for Alteus provider config.
+        if k in {"alteus_api_url", "alteus_api_key", "alteus_endpoint_id"}:
+            if isinstance(v, str):
+                v = v.strip()
+                if v == "":
+                    v = None
+        setattr(settings, k, v)
     # bump updated_at
     from datetime import datetime
     settings.updated_at = datetime.utcnow()
